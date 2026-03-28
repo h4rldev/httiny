@@ -1,0 +1,156 @@
+#ifndef HTTINY_HEADER_H
+#define HTTINY_HEADER_H
+
+#include <httiny/arena.h>
+#include <httiny/string.h>
+#include <httiny/types.h>
+
+typedef string httiny_header_t;
+typedef string httiny_header_name_t;
+typedef string httiny_header_value_t;
+
+typedef struct {
+  httiny_header_t **headers;
+  u64 size;
+  u64 capacity;
+} httiny_header_list_t;
+
+/*
+ * @brief An enum of all the headers for HTTP outside of Deprecated and
+ * Non-Standard.
+ *
+ * @note Some of these are forbidden to be sent by the server to the client and
+ * vise-versa
+ */
+typedef enum {
+  HTTINY_ACCEPT,
+  HTTINY_ACCEPT_CH,
+  HTTINY_ACCEPT_ENCODING,
+  HTTINY_ACCEPT_LANGUAGE,
+  HTTINY_ACCEPT_PATCH,
+  HTTINY_ACCEPT_POST,
+  HTTINY_ACCEPT_RANGES,
+  HTTINY_ACCESS_CONTROL_ALLOW_CREDS,
+  HTTINY_ACCESS_CONTROL_ALLOW_HEADERS,
+  HTTINY_ACCESS_CONTROL_ALLOW_METHODS,
+  HTTINY_ACCESS_CONTROL_ALLOW_ORIGIN,
+  HTTINY_ACCESS_CONTROL_EXPOSE_HEADERS,
+  HTTINY_ACCESS_CONTROL_MAX_AGE,
+  HTTINY_ACCESS_CONTROL_REQUEST_HEADERS,
+  HTTINY_ACCESS_CONTROL_REQUEST_METHOD,
+  HTTINY_ACTIVATE_STORAGE_ACCESS,
+  HTTINY_AGE,
+  HTTINY_ALLOW,
+  HTTINY_ALT_SVC,
+  HTTINY_ALT_USED,
+  HTTINY_AUTHORIZATION,
+  HTTINY_CACHE_CONTROL,
+  HTTINY_CLEAR_SITE_DATA,
+  HTTINY_CONNECTION,
+  HTTINY_CONTENT_DIGEST,
+  HTTINY_CONTENT_DISPOSITION,
+  HTTINY_CONTENT_ENCODING,
+  HTTINY_CONTENT_LANGUAGE,
+  HTTINY_CONTENT_LENGTH,
+  HTTINY_CONTENT_LOCATION,
+  HTTINY_CONTENT_RANGE,
+  HTTINY_CONTENT_SECURITY_POLICY,
+  HTTINY_CONTENT_SECURITY_POLICY_REPORT_ONLY,
+  HTTINY_CONTENT_TYPE,
+  HTTINY_COOKIE,
+  HTTINY_CROSS_ORIGIN_EMBEDDER_POLICY,
+  HTTINY_CROSS_ORIGIN_EMBEDDER_POLICY_REPORT_ONLY,
+  HTTINY_CROSS_ORIGIN_OPENER_POLICY,
+  HTTINY_CROSS_ORIGIN_RESOURCE_POLICY,
+  HTTINY_DATE,
+  HTTINY_ETAG,
+  HTTINY_EXPECT,
+  HTTINY_EXPIRES,
+  HTTINY_FORWARDED,
+  HTTINY_FROM,
+  HTTINY_HOST,
+  HTTINY_IF_MATCH,
+  HTTINY_IF_MODIFIED_SINCE,
+  HTTINY_IF_NONE_MATCH,
+  HTTINY_IF_RANGE,
+  HTTINY_IF_UNMODIFIED_SINCE,
+  HTTINY_INTEGRITY_POLICY,
+  HTTINY_INTEGRITY_POLICY_REPORT_ONLY,
+  HTTINY_KEEP_ALIVE,
+  HTTINY_LAST_MODIFIED,
+  HTTINY_LINK,
+  HTTINY_LOCATION,
+  HTTINY_MAX_FORWARDS,
+  HTTINY_ORIGIN,
+  HTTINY_ORIGIN_AGENT_CLUSTER,
+  HTTINY_PREFER,
+  HTTINY_PREFERENCE_APPLIED,
+  HTTINY_PRIORITY,
+  HTTINY_PROXY_AUTHENTICATE,
+  HTTINY_PROXY_AUTHORIZATION,
+  HTTINY_RANGE,
+  HTTINY_REFERER,
+  HTTINY_REFERRER_POLICY,
+  HTTINY_REFRESH,
+  HTTINY_REPORTING_ENDPOINTS,
+  HTTINY_REPR_DIGEST,
+  HTTINY_RETRY_AFTER,
+  HTTINY_SEC_FETCH_DEST,
+  HTTINY_SEC_FETCH_MODE,
+  HTTINY_SEC_FETCH_SITE,
+  HTTINY_SEC_FETCH_STORAGE_ACCESS,
+  HTTINY_SEC_FETCH_USER,
+  HTTINY_SEC_PURPOSE,
+  HTTINY_SEC_WEBSOCKET_ACCEPT,
+  HTTINY_SEC_WEBSOCKET_EXTENSIONS,
+  HTTINY_SEC_WEBSOCKET_KEY,
+  HTTINY_SEC_WEBSOCKET_PROTOCOL,
+  HTTINY_SEC_WEBSOCKET_VERSION,
+  HTTINY_SERVER,
+  HTTINY_SERVER_TIMING,
+  HTTINY_SERVICE_WORKER,
+  HTTINY_SERVICE_WORKER_ALLOWED,
+  HTTINY_SERVICE_WORKER_NAVIGATION_PRELOAD,
+  HTTINY_SET_COOKIE,
+  HTTINY_SET_LOGIN,
+  HTTINY_SOURCEMAP,
+  HTTINY_STRICT_TRANSPORT_SECURITY,
+  HTTINY_TE,
+  HTTINY_TIMING_ALLOW_ORIGIN,
+  HTTINY_TRAILER,
+  HTTINY_TRANSFER_ENCODING,
+  HTTINY_UPGRADE,
+  HTTINY_UPGRADE_INSECURE_REQUESTS,
+  HTTINY_USER_AGENT,
+  HTTINY_VARY,
+  HTTINY_VIA,
+  HTTINY_WANT_CONTENT_DIGEST,
+  HTTINY_WANT_REPR_DIGEST,
+  HTTINY_WWW_AUTHENTICATE,
+  HTTINY_X_CONTENT_TYPE_OPTIONS,
+  HTTINY_X_FRAME_OPTIONS,
+} HTTINY_HEADER_KEY;
+
+/*
+ * @brief Creates a new header list with the given length and first header.
+ *
+ * @param arena The arena to allocate the header list from.
+ * @param len The length of the header list.
+ * @param first The first header in the list (NULL if none).
+ */
+httiny_header_list_t *header_list_new(httiny_arena_t *arena, u64 len,
+                                      string_nullable *first);
+
+void header_append(httiny_arena_t *arena, httiny_header_list_t *header_list,
+                   httiny_header_t *header);
+
+httiny_header_t *header_list_get(httiny_header_list_t *header_list, u64 index);
+
+httiny_header_name_t *get_header_name(httiny_arena_t *arena,
+                                      HTTINY_HEADER_KEY key);
+httiny_header_t *create_header(httiny_arena_t *arena,
+                               HTTINY_HEADER_KEY header_key,
+                               string_nullable *original_key_name,
+                               httiny_header_value_t *val);
+
+#endif // !HTTINY_HEADER_H
