@@ -1,12 +1,11 @@
-#include <assert.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <threads.h>
 
 #include <httiny/arena.h>
+#include <httiny/assert.h>
 #include <httiny/types.h>
 
 // TODO: Make this arena allocator multi-platform.
@@ -14,7 +13,7 @@ static u32 get_page_size(void) { return (u32)sysconf(_SC_PAGESIZE); }
 
 static void *mem_reserve(u64 size) {
   void *ret = mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  assert(ret != MAP_FAILED && "Failed to reserve memory, mmap failed");
+  httiny_assert(ret != MAP_FAILED && "Failed to reserve memory, mmap failed");
   return ret;
 }
 
@@ -24,7 +23,7 @@ static bool mem_commit(void *ptr, u64 size) {
 
 static bool mem_decommit(void *ptr, u64 size) {
   i32 ret = mprotect(ptr, size, PROT_NONE);
-  assert(ret == 0 && "Failed to remove protection");
+  httiny_assert(ret == 0 && "Failed to remove protection");
   return (i32)madvise(ptr, size, MADV_DONTNEED) == 0;
 }
 
@@ -38,11 +37,12 @@ httiny_arena_t *arena_new(u64 reserve_size, u64 commit_size) {
   reserve_size = ALIGN_POW2(reserve_size, page_size);
   commit_size = ALIGN_POW2(commit_size, page_size);
 
-  assert(reserve_size > commit_size &&
-         "Reserve size must be larger than commit size");
+  httiny_assert(reserve_size > commit_size &&
+                "Reserve size must be larger than commit size");
 
   httiny_arena_t *arena = mem_reserve(reserve_size);
-  assert(mem_commit(arena, commit_size) == true && "Failed to commit memory");
+  httiny_assert(mem_commit(arena, commit_size) == true &&
+                "Failed to commit memory");
 
   arena->reserved = reserve_size;
   arena->committed = commit_size;
@@ -60,7 +60,7 @@ void *arena_push(httiny_arena_t *arena, u64 size) {
   u64 pos_aligned = ALIGN_POW2(arena->position, HTTINY_ARENA_ALIGNMENT);
   u64 new_pos = pos_aligned + size;
 
-  assert(new_pos < arena->reserved && "Arena full");
+  httiny_assert(new_pos < arena->reserved && "Arena full");
 
   if (new_pos > arena->commit_position) {
     u64 new_commit_pos = new_pos;
@@ -71,7 +71,8 @@ void *arena_push(httiny_arena_t *arena, u64 size) {
     u8 *mem = (u8 *)arena + arena->commit_position;
     u64 commit_size = new_commit_pos - arena->commit_position;
 
-    assert(mem_commit(mem, commit_size) == true && "Failed to commit memory");
+    httiny_assert(mem_commit(mem, commit_size) == true &&
+                  "Failed to commit memory");
 
     arena->commit_position = new_commit_pos;
   }
@@ -95,8 +96,10 @@ void arena_pop_to(httiny_arena_t *arena, u64 pos) {
 
 void arena_clear(httiny_arena_t *arena) {
   arena_pop_to(arena, HTTINY_ARENA_BASE_POS);
-  assert(mem_decommit(arena, arena->committed) == true && "Failed to decommit");
-  assert(mem_commit(arena, arena->committed) == true && "Failed to recommit");
+  httiny_assert(mem_decommit(arena, arena->committed) == true &&
+                "Failed to decommit");
+  httiny_assert(mem_commit(arena, arena->committed) == true &&
+                "Failed to recommit");
 }
 
 httiny_scratch_arena_t arena_scratch_new(httiny_arena_t *arena) {

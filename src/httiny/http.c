@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,6 +5,7 @@
 #include <time.h>
 
 #include <httiny/arena.h>
+#include <httiny/assert.h>
 #include <httiny/header.h>
 #include <httiny/http.h>
 #include <httiny/string.h>
@@ -113,10 +113,10 @@ static httiny_http_msg_chunks_t *split_to_chunks(httiny_arena_t *arena,
 }
 
 static int stream_chunk(httiny_arena_t *arena, int sockfd, string *chunk) {
-  const char *chunk_cstr = string_get_cstr(arena, chunk);
+  const unsigned char *chunk_cstr = chunk->data;
   u64 chunk_len = chunk->len;
 
-  const char *ptr = chunk_cstr;
+  const unsigned char *ptr = chunk_cstr;
   while (chunk_len > 0) {
     ssize_t sent = send(sockfd, ptr, chunk_len, 0);
     if (sent <= 0) {
@@ -133,21 +133,20 @@ static int stream_chunk(httiny_arena_t *arena, int sockfd, string *chunk) {
 static int send_chunk(httiny_arena_t *arena, int sockfd, string *chunk) {
   string *header = string_new(arena, NULL, 32);
   char header_buf[32];
-  printf("Chunk len: %lu\n", chunk->len);
   u64 size = snprintf(header_buf, 32, "%zx\r\n", chunk->len);
-  memcpy(header->data, header_buf, size - 1);
-  header->len = size - 1;
+  memcpy(header->data, header_buf, size);
+  header->len = size;
 
-  printf("Sending headers: %.*s\n", (int)header->len, header->data);
-  printf("Sending chunk: %.*s\n", (int)chunk->len, chunk->data);
-  printf("Chunk size: %lu\n", chunk->len);
-
-  assert(stream_chunk(arena, sockfd, header) == 0 &&
-         "Failed to send chunk size header chunk");
-  assert(stream_chunk(arena, sockfd, chunk) == 0 &&
-         "Failed to send chunk data");
-  assert(stream_chunk(arena, sockfd, HTTINY_STR("\r\n")) == 0 &&
-         "Failed to send chunk trailer");
+  httiny_assert(stream_chunk(arena, sockfd, header) == 0 &&
+                "Failed to send chunk size header chunk");
+  httiny_assert(stream_chunk(arena, sockfd, chunk) == 0 &&
+                "Failed to send chunk data");
+  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("\r\n")) == 0 &&
+                "Failed to send chunk trailer");
+  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("0\r\n")) == 0 &&
+                "Failed to send terminator");
+  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("\r\n")) == 0 &&
+                "Failed to send terminator terminator");
 
   return 0;
 }
@@ -166,7 +165,7 @@ static string *get_reason(httiny_arena_t *arena, u16 status) {
     if (status_codes_table[i].status == status)
       return string_new(arena, status_codes_table[i].reason,
                         status_codes_table[i].reason_len);
-  assert(false && "Invalid or unrecognized status code");
+  httiny_assert(false && "Invalid or unrecognized status code");
 }
 httiny_http_resp *http_resp_new(httiny_arena_t *arena, string *body,
                                 u16 status) {
@@ -176,16 +175,14 @@ httiny_http_resp *http_resp_new(httiny_arena_t *arena, string *body,
   resp->reason = get_reason(arena, status);
 
   httiny_header_list_t *headers = header_list_new(arena, 2, NULL);
-  header_append(arena, headers, HTTINY_STR("Server: HTTiny"));
+  header_append(arena, &headers, HTTINY_STR("Server: HTTiny"));
 
   if (status >= 200 && (status != 204 && status != 304)) {
-    printf("Adding date\n");
-    header_append(arena, headers, generate_date(arena));
-    printf("Adding transfer encoding\n");
-    header_append(arena, headers, HTTINY_STR("Transfer-Encoding: chunked"));
+    header_append(arena, &headers, generate_date(arena));
+    header_append(arena, &headers, HTTINY_STR("Transfer-Encoding: chunked"));
   }
 
-  header_append(arena, headers, HTTINY_STR("Connection: keep-alive"));
+  header_append(arena, &headers, HTTINY_STR("Connection: keep-alive"));
 
   resp->headers = headers;
   return resp;
@@ -217,8 +214,6 @@ string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp *resp) {
   actual_size += 2;
 
   for (u64 i = 0; i < headers->size; i++) {
-    printf("Adding header: %.*s\n", (int)headers->headers[i]->len,
-           headers->headers[i]->data);
     memcpy(http_message->data + actual_size, headers->headers[i]->data,
            headers->headers[i]->len);
     actual_size += headers->headers[i]->len;
@@ -230,13 +225,12 @@ string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp *resp) {
   actual_size += 2;
 
   http_message->len = actual_size;
-  printf("http_message: %.*s\n", (int)http_message->len, http_message->data);
   return http_message;
 }
 
 int send_http_resp(httiny_arena_t *arena, int sockfd, httiny_http_resp *resp) {
   string *http_header = stringify_http_header(arena, resp);
-  send_chunk(arena, sockfd, http_header);
+  stream_chunk(arena, sockfd, http_header);
 
   httiny_http_msg_chunks_t *chunks = split_to_chunks(arena, resp->body, 1024);
 

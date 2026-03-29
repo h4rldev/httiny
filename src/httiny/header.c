@@ -1,7 +1,7 @@
-#include <assert.h>
 #include <string.h>
 
 #include <httiny/arena.h>
+#include <httiny/assert.h>
 #include <httiny/header.h>
 #include <httiny/string.h>
 #include <httiny/types.h>
@@ -26,11 +26,11 @@ void header_list_grow(httiny_arena_t *arena, httiny_header_list_t **header_list,
                       u64 new_capacity) {
   // Why do we abort and not let the arena destroy?
   // Cause the kernel will free the map on process exit anyway.
-  assert((*header_list) != NULL && "Invalid header list");
+  httiny_assert((*header_list) != NULL && "Invalid header list");
   httiny_header_list_t *header_list_ptr = *header_list;
 
-  assert(new_capacity > header_list_ptr->capacity &&
-         "Invalid capacity size, can't be smaller than the previous");
+  httiny_assert(new_capacity > header_list_ptr->capacity &&
+                "Invalid capacity size, can't be smaller than the previous");
 
   httiny_header_list_t *new_headers =
       header_list_new(arena, new_capacity, header_list_ptr->headers[0]);
@@ -44,21 +44,19 @@ void header_list_grow(httiny_arena_t *arena, httiny_header_list_t **header_list,
   *header_list = new_headers;
 }
 
-void header_append(httiny_arena_t *arena, httiny_header_list_t *header_list,
+void header_append(httiny_arena_t *arena, httiny_header_list_t **header_list,
                    httiny_header_t *header) {
-  /*printf("header_list->size: %lu\n", header_list->size);
-  printf("header_list->pos: %lu\n", header_list->pos);
-  printf("header_list->capacity: %lu\n", header_list->capacity);*/
+  httiny_header_list_t *header_list_ptr = *header_list;
 
-  if (header_list->size == header_list->capacity)
-    header_list_grow(arena, &header_list, header_list->capacity * 2);
+  if ((header_list_ptr->size + 1) == header_list_ptr->capacity)
+    header_list_grow(arena, header_list, header_list_ptr->capacity * 2);
 
-  header_list->headers[header_list->size] = header;
-  header_list->size++;
+  (*header_list)->headers[header_list_ptr->size] = header;
+  (*header_list)->size = header_list_ptr->size + 1;
 }
 
 httiny_header_t *header_list_get(httiny_header_list_t *header_list, u64 index) {
-  assert(index > header_list->size && "Invalid index");
+  httiny_assert(index > header_list->size && "Invalid index");
   return header_list->headers[index];
 }
 
@@ -268,7 +266,7 @@ httiny_header_name_t *get_header_name(httiny_arena_t *arena,
   case HTTINY_X_FRAME_OPTIONS:
     return string_new(arena, "X-Frame-Options", 15);
   default:
-    assert(false && "Invalid header");
+    httiny_assert(false && "Invalid header");
   }
 }
 

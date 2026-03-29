@@ -141,7 +141,7 @@ typedef enum {
 httiny_header_list_t *header_list_new(httiny_arena_t *arena, u64 len,
                                       string_nullable *first);
 
-void header_append(httiny_arena_t *arena, httiny_header_list_t *header_list,
+void header_append(httiny_arena_t *arena, httiny_header_list_t **header_list,
                    httiny_header_t *header);
 
 httiny_header_t *header_list_get(httiny_header_list_t *header_list, u64 index);
