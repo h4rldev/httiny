@@ -86,7 +86,7 @@ httiny_path_conf_t *path_conf_new(httiny_arena_t *thread_arena);
  *
  * @return The updated path conf.
  */
-httiny_path_conf_t *handler_register(httiny_path_conf_t **oath_conf,
+httiny_path_conf_t *handler_register(httiny_path_conf_t **path_conf,
                                      const httiny_path_t *path,
                                      void *state_nullable,
                                      httiny_callback_t callback);

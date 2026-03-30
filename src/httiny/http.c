@@ -171,14 +171,72 @@ static string *get_reason(httiny_arena_t *arena, u16 status) {
   httiny_assert(false && "Invalid or unrecognized status code");
 }
 
+static httiny_header_list_t *parse_headers_from_body(httiny_arena_t *arena,
+                                                     string *body) {
+  httiny_assert(body != NULL && "Invalid body");
+
+  string *message_dup = string_dup(arena, body);
+
+  httiny_header_list_t *gotten_headers = header_list_new(arena, 2, NULL);
+
+  const cstr *message_cstr = string_get_cstr(arena, message_dup);
+  const cstr *message_start = message_cstr;
+  const cstr *message_end = strstr(message_start, "\r\n");
+
+  const cstr *headers_start = message_end + 1;
+  const cstr *headers_end = strstr(headers_start, "\r\n\r\n");
+
+  const string *header_clump =
+      string_new(arena, headers_start, headers_end - headers_start);
+  const cstr *headers_cstr = string_get_cstr(arena, (string *)header_clump);
+
+  const cstr *header_clump_start = headers_cstr;
+  const cstr *header_clump_end;
+
+  while (*header_clump_start) {
+    httiny_header_name_t *header_name = NULL;
+    httiny_header_value_t *header_value = NULL;
+
+    header_clump_end = strstr(header_clump_start, "\r\n");
+    if (!header_clump_end)
+      header_clump_end = strchr(header_clump_start, '\0');
+
+    if (header_clump_end == header_clump_start)
+      break;
+
+    const cstr *colon =
+        memchr(header_clump_start, ':', header_clump_end - header_clump_start);
+    httiny_assert(colon != NULL && "Invalid header, missing colon");
+
+    header_name =
+        string_new(arena, header_clump_start, colon - header_clump_start);
+
+    const cstr *header_value_cstr = colon + 1;
+    if (*header_value_cstr == ' ')
+      header_value_cstr++;
+
+    header_value = string_new(arena, header_value_cstr,
+                              header_clump_end - header_value_cstr);
+
+    add_header(arena, &gotten_headers, -1, header_name, header_value);
+
+    if (*header_clump_end == '\r')
+      header_clump_start = header_clump_end + 2;
+    else
+      header_clump_start = header_clump_end;
+  }
+
+  return gotten_headers;
+}
+
 httiny_http_req_t *http_req_new(httiny_arena_t *arena, int sockfd,
                                 string *req_message) {
   httiny_assert(req_message != NULL && "Invalid request message");
   httiny_assert(req_message->len > 0 && "Empty request message");
 
-  httiny_header_list_t *gotten_headers = header_list_new(arena, 2, NULL);
   httiny_http_resp_t *resp = NULL;
   httiny_http_req_t *req = NULL;
+  httiny_header_list_t *gotten_headers = NULL;
 
   string *method = NULL;
   string *path = NULL;
@@ -191,74 +249,29 @@ httiny_http_req_t *http_req_new(httiny_arena_t *arena, int sockfd,
   end = strchr(start, ' ');
   httiny_assert(end != NULL && "Failed to begin parsing HTTP request");
   method = string_new(arena, start, end - start);
-  printf("Method: %.*s\n", (int)method->len, method->data);
 
   start = end + 1;
   end = strchr(start, ' ');
   httiny_assert(end != NULL && "Failed parsing HTTP request");
   path = string_new(arena, start, end - start);
-  printf("Path: %.*s\n", (int)path->len, path->data);
 
-  start = end + 1;
-  end = strchr(start, '\r');
-  httiny_assert(end != NULL && "Failed parsing HTTP request");
-  string *http_ver = string_new(arena, start, end - start);
-  httiny_assert(stringcase_compare(arena, http_ver, HTTINY_STR("HTTP/1.1")) &&
-                "Wrong HTTP version");
-  printf("HTTP version: %.*s\n", (int)http_ver->len, http_ver->data);
+  gotten_headers =
+      parse_headers_from_body(arena, string_dup(arena, req_message));
 
-  // begin parsing headers
-  start = end + 1;
-  end = strstr(start, "\r\n\r\n");
-  httiny_assert(end != NULL && "Failed parsing HTTP request");
-  string *header_clump = string_new(arena, start, end - start);
-  printf("Header clump: \"%.*s\"\n", (int)header_clump->len,
-         header_clump->data);
+  httiny_header_list_t *initial_headers = header_list_new(arena, 2, NULL);
 
-  const cstr *header_cstr = string_get_cstr(arena, header_clump);
-  const cstr *header_start = header_cstr;
-  const cstr *header_end;
-  while (*header_start) {
-    header_end = strstr(header_start, "\r\n");
-    if (!header_end) {
-      header_end = strchr(header_start, '\0');
-      if (!header_end)
-        break;
-    }
-
-    const cstr *colon = memchr(header_start, ':', header_end - header_start);
-    httiny_assert(colon != NULL && "Invalid header, missing colon");
-
-    httiny_header_name_t *header_name =
-        string_new(arena, header_start, colon - header_start);
-    const cstr *header_value_cstr = colon + 1;
-    if (*header_value_cstr == ' ')
-      header_value_cstr++;
-
-    httiny_header_value_t *header_value =
-        string_new(arena, header_value_cstr, header_end - header_value_cstr);
-
-    add_header(arena, &gotten_headers, -1, header_name, header_value);
-
-    header_start = header_end + 2;
-  }
-
-  // TODO: implement body parsing soon.
-  if ((string_compare(method, HTTINY_STR("GET")) == false) ||
-      (string_compare(method, HTTINY_STR("OPTIONS")) == false) ||
-      (string_compare(method, HTTINY_STR("HEAD")) == false) ||
-      (string_compare(method, HTTINY_STR("DELETE")) == false) ||
-      (string_compare(method, HTTINY_STR("TRACE")) == false) ||
-      (string_compare(method, HTTINY_STR("CONNECT")) == false)) {
-    start = end + 1;
-    end = strstr(start, "\r\n\r\n");
-    httiny_assert(end != NULL && "Failed parsing HTTP request");
-    string *body_clump = string_new(arena, start, end - start);
-    printf("Body clump: \"%.*s\"\n", (int)body_clump->len, body_clump->data);
-  }
+  add_header(arena, &initial_headers, HTTINY_SERVER, NULL,
+             HTTINY_STR("httiny"));
+  add_header(arena, &initial_headers, HTTINY_DATE, NULL, generate_date(arena));
+  add_header(arena, &initial_headers, HTTINY_CONTENT_TYPE, NULL,
+             HTTINY_STR("text/plain"));
+  add_header(arena, &initial_headers, HTTINY_TRANSFER_ENCODING, NULL,
+             HTTINY_STR("chunked"));
+  add_header(arena, &initial_headers, HTTINY_CONNECTION, NULL,
+             HTTINY_STR("keep-alive"));
 
   resp = arena_push(arena, sizeof(httiny_http_resp_t));
-  resp->headers = header_list_new(arena, 2, NULL);
+  resp->headers = initial_headers;
   resp->body = NULL;
   resp->status = 200;
   resp->reason = HTTINY_STR("OK");

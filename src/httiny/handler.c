@@ -85,7 +85,8 @@ httiny_path_conf_t *handler_register(httiny_path_conf_t **path_conf,
 
   new_handler->callback = callback;
   new_handler->state = arena_push(arena, sizeof(state_nullable));
-  memcpy(new_handler->state, state_nullable, sizeof(state_nullable));
+  if (state_nullable)
+    memcpy(new_handler->state, state_nullable, sizeof(state_nullable));
 
   if (path_list_ptr->size + 1 == path_conf_ptr->shared_capacity)
     __httiny_path_conf_grow((*path_conf)->thread_arena, path_conf,

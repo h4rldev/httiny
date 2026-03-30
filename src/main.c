@@ -14,6 +14,8 @@
 #include <httiny/socket.h>
 #include <httiny/types.h>
 
+#include <api/test.h>
+
 #define BUFFER_SIZE MiB(1)
 static httiny_path_conf_t *path_conf;
 
@@ -55,7 +57,13 @@ void *handle_connection(void *arg) {
     httiny_assert((path_conf->handler_list->handlers[i] != NULL ||
                    path_conf->path_list->paths[i] != NULL) &&
                   "Path conf is unpopulated");
+    printf("Got request on path %.*s\n", (int)path->len, path->data);
+
+    printf("Comparing %.*s with %.*s\n", (int)path->len, path->data,
+           (int)path_conf->path_list->paths[i]->len,
+           path_conf->path_list->paths[i]->data);
     if (string_compare(path, path_conf->path_list->paths[i])) {
+      printf("Handling request for %.*s\n", (int)path->len, path->data);
       int ret = path_conf->handler_list->handlers[i]->callback(
           path_conf->handler_list->handlers[i]->state, req);
       if (ret != 0)
@@ -118,6 +126,10 @@ int start_server(httiny_arena_t *arena) {
 
 int main(void) {
   httiny_arena_t *arena = arena_new(MiB(128), MiB(64));
+
+  path_conf = path_conf_new(arena);
+
+  path_conf = handler_register(&path_conf, HTTINY_STR("/"), NULL, test_handler);
 
   start_server(arena);
 
