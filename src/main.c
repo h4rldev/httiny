@@ -15,8 +15,9 @@
 #include <httiny/types.h>
 
 #define BUFFER_SIZE MiB(1)
+static httiny_path_conf_t *path_conf;
 
-int not_found_handler(httiny_http_req *req) {
+int not_found_handler(void *state, httiny_http_req_t *req) {
   httiny_arena_t *arena = req->thread_arena;
 
   req->resp->status = 404;
@@ -24,7 +25,11 @@ int not_found_handler(httiny_http_req *req) {
       HTTINY_STR("Not Found"); // Can be NULL and HTTINY will generate the
                                // appropriate reason
 
-  httiny_send_resp(req);
+  httiny_set_body(req, HTTINY_STR("Not Found"));
+  add_header(arena, &req->resp->headers, HTTINY_CONTENT_TYPE,
+             HTTINY_STR("Content-Type"), HTTINY_STR("text/plain"));
+
+  httiny_send_resp(req); // Sends the response
 
   return 0; // If you return non-zero it will respond with a set body or the set
             // 404 file (TODO)
@@ -42,7 +47,21 @@ void *handle_connection(void *arg) {
   }
 
   printf("Bytes received: %lu\n", received);
+  httiny_http_req_t *req = http_req_new(arena, client_sockfd, request);
+  string *path = req->path;
 
+  for (u64 i = 0; i < path_conf->handler_list->size; i++) {
+    // TODO: Return basic 404 if unpopulated.
+    httiny_assert((path_conf->handler_list->handlers[i] != NULL ||
+                   path_conf->path_list->paths[i] != NULL) &&
+                  "Path conf is unpopulated");
+    if (string_compare(path, path_conf->path_list->paths[i])) {
+      int ret = path_conf->handler_list->handlers[i]->callback(
+          path_conf->handler_list->handlers[i]->state, req);
+      if (ret != 0)
+        not_found_handler(NULL, req);
+    }
+  }
 Close:
   close(client_sockfd);
   return NULL;
@@ -51,7 +70,7 @@ Close:
 static volatile int running = 1;
 
 void close_socket(int dummy) {
-  printf("Closing socket\n");
+  printf("\nClosing socket\n");
   running = 0;
 }
 

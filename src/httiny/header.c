@@ -46,10 +46,18 @@ static httiny_header_t *__create_header(httiny_arena_t *arena,
                                         string_nullable *original_key_name,
                                         httiny_header_value_t *val) {
   httiny_header_name_t *header_name = get_header_name(arena, header_key);
-  if (original_key_name != NULL)
+  if (!header_name)
+    httiny_assert(original_key_name != NULL &&
+                  "Invalid usage of __create_header");
+
+  if (original_key_name != NULL && header_name != NULL)
     httiny_assert(stringncase_compare(arena, header_name, original_key_name,
                                       header_name->len) == true &&
                   "Invalid header name");
+
+  // Assume we're using the original key name if we don't have a header name
+  if (!header_name)
+    header_name = original_key_name;
 
   httiny_header_t *header =
       string_new(arena, NULL, header_name->len + val->len + 2);
@@ -298,6 +306,9 @@ HTTINY_HEADER_KEY get_header_key(httiny_header_t *header) {
 }
 httiny_header_name_t *get_header_name(httiny_arena_t *arena,
                                       HTTINY_HEADER_KEY key) {
+  if (HTTINY_X_FRAME_OPTIONS < key || key < HTTINY_ACCEPT)
+    return NULL;
+
   switch (key) {
   case HTTINY_ACCEPT:
     return HTTINY_STR("Accept");

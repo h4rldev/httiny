@@ -4,7 +4,7 @@ A tiny little HTTP server for learning purposes and how C translates to amd64 as
 
 ## Features
 
-HTTiny uses only the standard C library, and is written using C11.
+HTTiny uses only the standard C library, and is written using gnu11.
 (httiny_assert requires GNU extensions for now, but i'll get to it.).
 
 - [x] HTTP/1.1 support

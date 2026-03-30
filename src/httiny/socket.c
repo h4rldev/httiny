@@ -17,6 +17,11 @@ int make_socket(void) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   httiny_assert(sock != -1 && "Failed to create socket");
 
+  int enabled = 1;
+  httiny_assert(
+      setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(int)) != -1 &&
+      "Failed to set SO_REUSEADDR");
+
   return sock;
 }
 

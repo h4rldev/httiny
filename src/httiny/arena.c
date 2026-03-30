@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <threads.h>
 
 #include <httiny/arena.h>
 #include <httiny/assert.h>

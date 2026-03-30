@@ -10,6 +10,9 @@
 #include <httiny/http.h>
 #include <httiny/string.h>
 #include <httiny/types.h>
+#include <unistd.h>
+
+typedef string httiny_path_t;
 
 typedef struct {
   u16 status;
@@ -167,32 +170,112 @@ static string *get_reason(httiny_arena_t *arena, u16 status) {
                         status_codes_table[i].reason_len);
   httiny_assert(false && "Invalid or unrecognized status code");
 }
-httiny_http_resp *http_resp_new(httiny_arena_t *arena, string *body,
-                                u16 status) {
-  httiny_http_resp *resp = arena_push(arena, sizeof(httiny_http_resp));
-  resp->body = body;
-  resp->status = status;
-  resp->reason = get_reason(arena, status);
 
-  httiny_header_list_t *headers = header_list_new(arena, 2, NULL);
-  add_header(arena, &headers, HTTINY_SERVER, HTTINY_STR("Server"),
-             HTTINY_STR("HTTiny"));
+httiny_http_req_t *http_req_new(httiny_arena_t *arena, int sockfd,
+                                string *req_message) {
+  httiny_assert(req_message != NULL && "Invalid request message");
+  httiny_assert(req_message->len > 0 && "Empty request message");
 
-  if (status >= 200 && (status != 204 && status != 304)) {
-    add_header(arena, &headers, HTTINY_DATE, HTTINY_STR("Date"),
-               generate_date(arena));
-    add_header(arena, &headers, HTTINY_TRANSFER_ENCODING,
-               HTTINY_STR("Transfer-Encoding"), HTTINY_STR("chunked"));
+  httiny_header_list_t *gotten_headers = header_list_new(arena, 2, NULL);
+  httiny_http_resp_t *resp = NULL;
+  httiny_http_req_t *req = NULL;
+
+  string *method = NULL;
+  string *path = NULL;
+  string *body = NULL;
+
+  const cstr *req_cstr = string_get_cstr(arena, req_message);
+  const cstr *start = req_cstr;
+  const cstr *end;
+
+  end = strchr(start, ' ');
+  httiny_assert(end != NULL && "Failed to begin parsing HTTP request");
+  method = string_new(arena, start, end - start);
+  printf("Method: %.*s\n", (int)method->len, method->data);
+
+  start = end + 1;
+  end = strchr(start, ' ');
+  httiny_assert(end != NULL && "Failed parsing HTTP request");
+  path = string_new(arena, start, end - start);
+  printf("Path: %.*s\n", (int)path->len, path->data);
+
+  start = end + 1;
+  end = strchr(start, '\r');
+  httiny_assert(end != NULL && "Failed parsing HTTP request");
+  string *http_ver = string_new(arena, start, end - start);
+  httiny_assert(stringcase_compare(arena, http_ver, HTTINY_STR("HTTP/1.1")) &&
+                "Wrong HTTP version");
+  printf("HTTP version: %.*s\n", (int)http_ver->len, http_ver->data);
+
+  // begin parsing headers
+  start = end + 1;
+  end = strstr(start, "\r\n\r\n");
+  httiny_assert(end != NULL && "Failed parsing HTTP request");
+  string *header_clump = string_new(arena, start, end - start);
+  printf("Header clump: \"%.*s\"\n", (int)header_clump->len,
+         header_clump->data);
+
+  const cstr *header_cstr = string_get_cstr(arena, header_clump);
+  const cstr *header_start = header_cstr;
+  const cstr *header_end;
+  while (*header_start) {
+    header_end = strstr(header_start, "\r\n");
+    if (!header_end) {
+      header_end = strchr(header_start, '\0');
+      if (!header_end)
+        break;
+    }
+
+    const cstr *colon = memchr(header_start, ':', header_end - header_start);
+    httiny_assert(colon != NULL && "Invalid header, missing colon");
+
+    httiny_header_name_t *header_name =
+        string_new(arena, header_start, colon - header_start);
+    const cstr *header_value_cstr = colon + 1;
+    if (*header_value_cstr == ' ')
+      header_value_cstr++;
+
+    httiny_header_value_t *header_value =
+        string_new(arena, header_value_cstr, header_end - header_value_cstr);
+
+    add_header(arena, &gotten_headers, -1, header_name, header_value);
+
+    header_start = header_end + 2;
   }
 
-  add_header(arena, &headers, HTTINY_CONNECTION, HTTINY_STR("Connection"),
-             HTTINY_STR("Connection: keep-alive"));
+  // TODO: implement body parsing soon.
+  if ((string_compare(method, HTTINY_STR("GET")) == false) ||
+      (string_compare(method, HTTINY_STR("OPTIONS")) == false) ||
+      (string_compare(method, HTTINY_STR("HEAD")) == false) ||
+      (string_compare(method, HTTINY_STR("DELETE")) == false) ||
+      (string_compare(method, HTTINY_STR("TRACE")) == false) ||
+      (string_compare(method, HTTINY_STR("CONNECT")) == false)) {
+    start = end + 1;
+    end = strstr(start, "\r\n\r\n");
+    httiny_assert(end != NULL && "Failed parsing HTTP request");
+    string *body_clump = string_new(arena, start, end - start);
+    printf("Body clump: \"%.*s\"\n", (int)body_clump->len, body_clump->data);
+  }
 
-  resp->headers = headers;
-  return resp;
+  resp = arena_push(arena, sizeof(httiny_http_resp_t));
+  resp->headers = header_list_new(arena, 2, NULL);
+  resp->body = NULL;
+  resp->status = 200;
+  resp->reason = HTTINY_STR("OK");
+
+  req = arena_push(arena, sizeof(httiny_http_req_t));
+  req->thread_arena = get_thread_arena(MiB(128), MiB(64));
+  req->headers = gotten_headers;
+  req->body = body;
+  req->method = method;
+  req->path = path;
+  req->resp = resp;
+  req->conn.client_sockfd = sockfd;
+
+  return req;
 }
 
-string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp *resp) {
+string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp_t *resp) {
   httiny_header_list_t *headers = resp->headers;
 
   // 256 for padding and spaces and stuff.
@@ -232,10 +315,12 @@ string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp *resp) {
   return http_message;
 }
 
-void httiny_send_resp(httiny_http_req *req) {
+void httiny_send_resp(httiny_http_req_t *req) {
   int client_sockfd = req->conn.client_sockfd;
   httiny_arena_t *arena = req->thread_arena;
-  httiny_http_resp *resp = req->resp;
+  httiny_http_resp_t *resp = req->resp;
+  if (resp->reason == NULL) // Fill reason if it's NULL
+    resp->reason = get_reason(arena, resp->status);
 
   string *http_header = stringify_http_header(arena, resp);
   stream_chunk(arena, req->conn.client_sockfd, http_header);
@@ -244,4 +329,9 @@ void httiny_send_resp(httiny_http_req *req) {
 
   for (u64 i = 0; i < chunks->size; i++)
     send_chunk(arena, client_sockfd, chunks->chunks[i]);
+}
+
+void httiny_set_body(httiny_http_req_t *req, string *body) {
+  httiny_arena_t *arena = req->thread_arena;
+  req->resp->body = string_dup(arena, body);
 }

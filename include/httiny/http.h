@@ -18,7 +18,7 @@ typedef struct {
   string *body;
   u16 status;
   string *reason;
-} httiny_http_resp;
+} httiny_http_resp_t;
 
 /*
  * @brief A http request.
@@ -38,11 +38,11 @@ typedef struct {
   string *body;
   string *method;
   string *path;
-  httiny_http_resp *resp;
+  httiny_http_resp_t *resp;
   struct {
     int client_sockfd;
   } conn;
-} httiny_http_req;
+} httiny_http_req_t;
 
 /*
  * @brief Creates a new http request body from a string for processing.
@@ -54,8 +54,8 @@ typedef struct {
  *
  * @return The new http request to populate a handler.
  */
-httiny_http_req *http_req_new(httiny_arena_t *arena, int sockfd,
-                              string *req_message);
+httiny_http_req_t *http_req_new(httiny_arena_t *arena, int sockfd,
+                                string *req_message);
 
 /*
  * @brief Stringifies the HTTP header for a response.
@@ -66,16 +66,25 @@ httiny_http_req *http_req_new(httiny_arena_t *arena, int sockfd,
  *
  * @return The stringified HTTP header.
  */
-string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp *resp);
+string *stringify_http_header(httiny_arena_t *arena, httiny_http_resp_t *resp);
 
 /*
  * @brief Sends a response to the client.
  *
- * @param arena The arena to allocate the response from.
  * @param req The request to send the response for.
  *
  * @returns nothing, if something goes wrong, it will lead to an assert failure.
  */
-void httiny_send_resp(httiny_http_req *req);
+void httiny_send_resp(httiny_http_req_t *req);
+
+/*
+ * @brief Sets the body of the request.
+ *
+ * @param req The request to set the body for.
+ * @param body The body to set.
+ *
+ * @returns nothing, if something goes wrong, it will lead to an assert failure.
+ */
+void httiny_set_body(httiny_http_req_t *req, string *body);
 
 #endif // !HTTINY_HTTP_H

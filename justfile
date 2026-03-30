@@ -12,10 +12,10 @@ src_dir := "src"
 out_dir := "out"
 bin_dir := "bin"
 include_flags := '-I' + include_dir
-debug_shared_flags := '-ggdb -g -Og -fsanitize=address,undefined,leak -fno-sanitize-recover=all -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-common -std=c11'
+debug_shared_flags := '-ggdb -g -Og -fsanitize=address,undefined,leak -fno-sanitize-recover=all -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-common -std=gnu11'
 debug_compile_flags := debug_shared_flags + ' -Wall -Wextra -Wpedantic -Wno-unused-parameter'
 debug_link_flags := debug_shared_flags + ' -static-libasan'
-release_shared_flags := '-Ofast -std=c11'
+release_shared_flags := '-Ofast -std=gnu11'
 release_compile_flags := release_shared_flags
 release_link_flags := release_shared_flags
 

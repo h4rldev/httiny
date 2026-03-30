@@ -145,10 +145,10 @@ typedef enum {
  * @brief Creates a new header list with the given length and first header.
  *
  * @param arena The arena to allocate the header list from.
- * @param len The length of the header list.
+ * @param capacity The initial capacity of the header list.
  * @param first The first header in the list (NULL if none).
  */
-httiny_header_list_t *header_list_new(httiny_arena_t *arena, u64 len,
+httiny_header_list_t *header_list_new(httiny_arena_t *arena, u64 capacity,
                                       string_nullable *first);
 
 /*
