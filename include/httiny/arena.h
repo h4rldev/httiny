@@ -12,18 +12,6 @@
 #define MIN(num1, num2) ((num1 < num2) ? num1 : num2)
 #define MAX(num1, num2) ((num1 > num2) ? num1 : num2)
 
-typedef struct {
-  u64 reserved;
-  u64 committed;
-  u64 position;
-  u64 commit_position;
-} httiny_arena_t;
-
-typedef struct {
-  u64 start_pos;
-  httiny_arena_t *arena;
-} httiny_scratch_arena_t;
-
 #define HTTINY_ARENA_BASE_POS (sizeof(httiny_arena_t))
 #define HTTINY_ARENA_ALIGNMENT (sizeof(void *))
 

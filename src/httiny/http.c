@@ -1,24 +1,13 @@
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <time.h>
 
 #include <httiny/arena.h>
 #include <httiny/assert.h>
 #include <httiny/header.h>
-#include <httiny/http.h>
+#include <httiny/socket.h>
 #include <httiny/string.h>
 #include <httiny/types.h>
-#include <unistd.h>
-
-typedef string httiny_path_t;
-
-typedef struct {
-  u16 status;
-  const char *reason;
-  u64 reason_len;
-} status_table_entry;
 
 static status_table_entry status_codes_table[] = {
     {100, HTTINY_STR_LIT("Continue")},
@@ -80,11 +69,6 @@ static status_table_entry status_codes_table[] = {
     {0, 0, 0},
 };
 
-typedef struct {
-  string **chunks;
-  u64 size;
-} httiny_http_msg_chunks_t;
-
 static httiny_http_msg_chunks_t *split_to_chunks(httiny_arena_t *arena,
                                                  string *str, u64 chunk_size) {
   u64 full_chunks = str->len / chunk_size;
@@ -113,45 +97,6 @@ static httiny_http_msg_chunks_t *split_to_chunks(httiny_arena_t *arena,
   chunks->chunks = chunks_arr;
 
   return chunks;
-}
-
-static int stream_chunk(httiny_arena_t *arena, int sockfd, string *chunk) {
-  const unsigned char *chunk_cstr = chunk->data;
-  u64 chunk_len = chunk->len;
-
-  const unsigned char *ptr = chunk_cstr;
-  while (chunk_len > 0) {
-    ssize_t sent = send(sockfd, ptr, chunk_len, 0);
-    if (sent <= 0) {
-      printf("Failed to send chunk: %s\n", strerror(errno));
-      return -1;
-    }
-    ptr += sent;
-    chunk_len -= sent;
-  }
-
-  return 0;
-}
-
-static int send_chunk(httiny_arena_t *arena, int sockfd, string *chunk) {
-  string *header = string_new(arena, NULL, 32);
-  char header_buf[32];
-  u64 size = snprintf(header_buf, 32, "%zx\r\n", chunk->len);
-  memcpy(header->data, header_buf, size);
-  header->len = size;
-
-  httiny_assert(stream_chunk(arena, sockfd, header) == 0 &&
-                "Failed to send chunk size header chunk");
-  httiny_assert(stream_chunk(arena, sockfd, chunk) == 0 &&
-                "Failed to send chunk data");
-  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("\r\n")) == 0 &&
-                "Failed to send chunk trailer");
-  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("0\r\n")) == 0 &&
-                "Failed to send terminator");
-  httiny_assert(stream_chunk(arena, sockfd, HTTINY_STR("\r\n")) == 0 &&
-                "Failed to send terminator terminator");
-
-  return 0;
 }
 
 static string *generate_date(httiny_arena_t *arena) {
@@ -261,10 +206,8 @@ httiny_http_req_t *http_req_new(httiny_arena_t *arena, int sockfd,
   httiny_header_list_t *initial_headers = header_list_new(arena, 2, NULL);
 
   add_header(arena, &initial_headers, HTTINY_SERVER, NULL,
-             HTTINY_STR("httiny"));
+             HTTINY_STR("HTTiny"));
   add_header(arena, &initial_headers, HTTINY_DATE, NULL, generate_date(arena));
-  add_header(arena, &initial_headers, HTTINY_CONTENT_TYPE, NULL,
-             HTTINY_STR("text/plain"));
   add_header(arena, &initial_headers, HTTINY_TRANSFER_ENCODING, NULL,
              HTTINY_STR("chunked"));
   add_header(arena, &initial_headers, HTTINY_CONNECTION, NULL,

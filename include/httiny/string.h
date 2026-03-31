@@ -1,7 +1,6 @@
 #ifndef HTTINY_STRING_H
 #define HTTINY_STRING_H
 
-#include <httiny/arena.h>
 #include <httiny/types.h>
 
 /*

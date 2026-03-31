@@ -1,48 +1,8 @@
 #ifndef HTTINY_HTTP_H
 #define HTTINY_HTTP_H
 
-#include <httiny/arena.h>
 #include <httiny/header.h>
 #include <httiny/types.h>
-
-/*
- * @brief A http response.
- *
- * @param headers The headers to send.
- * @param body The body to send.
- * @param status The status code to send.
- * @param reason The status reason to send.
- */
-typedef struct {
-  httiny_header_list_t *headers;
-  string *body;
-  u16 status;
-  string *reason;
-} httiny_http_resp_t;
-
-/*
- * @brief A http request.
- *
- * @param thread_arena The arena for handler use.
- * @param headers The headers gotten from the client.
- * @param body The body gotten from the client.
- * @param method The method gotten from the client.
- * @param path The path the request was made on.
- * @param res The response to send.
- *
- * @param conn The connection information, not for direct use.
- */
-typedef struct {
-  httiny_arena_t *thread_arena;
-  httiny_header_list_t *headers;
-  string *body;
-  string *method;
-  string *path;
-  httiny_http_resp_t *resp;
-  struct {
-    int client_sockfd;
-  } conn;
-} httiny_http_req_t;
 
 /*
  * @brief Creates a new http request body from a string for processing.

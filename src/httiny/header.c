@@ -1,5 +1,4 @@
 #include <string.h>
-#include <strings.h>
 
 #include <httiny/arena.h>
 #include <httiny/assert.h>
@@ -39,34 +38,6 @@ static void __header_append(httiny_arena_t *arena,
 
   (*header_list)->headers[header_list_ptr->size] = header;
   (*header_list)->size = header_list_ptr->size + 1;
-}
-
-static httiny_header_t *__create_header(httiny_arena_t *arena,
-                                        HTTINY_HEADER_KEY header_key,
-                                        string_nullable *original_key_name,
-                                        httiny_header_value_t *val) {
-  httiny_header_name_t *header_name = get_header_name(arena, header_key);
-  if (!header_name)
-    httiny_assert(original_key_name != NULL &&
-                  "Invalid usage of __create_header");
-
-  if (original_key_name != NULL && header_name != NULL)
-    httiny_assert(stringncase_compare(arena, header_name, original_key_name,
-                                      header_name->len) == true &&
-                  "Invalid header name");
-
-  // Assume we're using the original key name if we don't have a header name
-  if (!header_name)
-    header_name = original_key_name;
-
-  httiny_header_t *header =
-      string_new(arena, NULL, header_name->len + val->len + 2);
-
-  stringcat(header, header_name);
-  memcpy(header->data + header_name->len, ": ", 2);
-  memcpy(header->data + header_name->len + 2, val->data, val->len);
-
-  return header;
 }
 
 httiny_header_list_t *header_list_new(httiny_arena_t *arena, u64 capacity,
@@ -515,6 +486,37 @@ httiny_header_name_t *get_header_name(httiny_arena_t *arena,
   default:
     httiny_assert(false && "Invalid header");
   }
+}
+
+static httiny_header_name_t *
+get_actual_header_name(httiny_arena_t *arena, HTTINY_HEADER_KEY key,
+                       httiny_header_name_t *header_name) {
+  if (header_name)
+    return string_dup(arena, header_name);
+  else
+    return get_header_name(arena, key);
+}
+
+static httiny_header_t *__create_header(httiny_arena_t *arena,
+                                        HTTINY_HEADER_KEY header_key,
+                                        string_nullable *original_key_name,
+                                        httiny_header_value_t *val) {
+  if (original_key_name == NULL)
+    if (header_key < HTTINY_ACCEPT ||
+        header_key > HTTINY_X_CONTENT_TYPE_OPTIONS)
+      httiny_assert(false && "Invalid usage of __create_header");
+
+  httiny_header_name_t *header_name =
+      get_actual_header_name(arena, header_key, original_key_name);
+
+  httiny_header_t *header =
+      string_new(arena, NULL, header_name->len + val->len + 2);
+
+  stringcat(header, header_name);
+  memcpy(header->data + header_name->len, ": ", 2);
+  memcpy(header->data + header_name->len + 2, val->data, val->len);
+
+  return header;
 }
 
 httiny_header_name_t *get_header_name_from_header(httiny_arena_t *arena,

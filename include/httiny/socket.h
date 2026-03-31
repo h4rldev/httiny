@@ -11,7 +11,7 @@
  * @param ip The IP address to create the sockaddr_in for.
  * @param port The port to create the sockaddr_in for.
  */
-struct sockaddr_in make_address(string *ip, u16 port);
+struct sockaddr_in make_address(const string *ip, const u16 port);
 
 /*
  * @brief Creates a new socket (currently only AF_INET)
@@ -45,5 +45,29 @@ void listen_socket(int sockfd, int backlog);
  * @return The new socket fd.
  */
 int accept_socket(int sockfd, struct sockaddr_in *addr);
+
+/*
+ * @brief Sends a chunk of data over a socket 'til chunk is empty.
+ *
+ * @param arena The arena to use for allocating memory.
+ * @param sockfd The socket to send the chunk on.
+ * @param chunk The chunk to send.
+ *
+ * @return 0 on success, -1 on failure.
+ */
+int stream_chunk(httiny_arena_t *arena, int sockfd, string *chunk);
+
+/*
+ * @brief Sends a chunk of data with HTTP chunked headers over a socket 'til
+ * chunk is empty.
+ *
+ * @note This calls stream_chunk, and sends the chunk with the size and trailing
+ * \r\n
+ *
+ * @param arena The arena to use for allocating memory.
+ * @param sockfd The socket to send the chunk on.
+ * @param chunk The chunk to send.
+ */
+void send_chunk(httiny_arena_t *arena, int sockfd, string *chunk);
 
 #endif // !HTTINY_SOCKET_H
