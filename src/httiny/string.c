@@ -37,6 +37,11 @@ string *string_dup(httiny_arena_t *arena, const string *src) {
 }
 
 bool string_compare(const string *first, const string *second) {
+  if (!first || !second) {
+    fprintf(stderr, "String is NULL\n");
+    return false;
+  }
+
   if (first->len != second->len)
     return false;
 

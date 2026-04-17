@@ -356,6 +356,8 @@ typedef struct {
   httiny_arena_t *thread_arena;
   httiny_path_list_t *path_list;
   httiny_handler_list_t *handler_list;
+  httiny_handler_list_t *not_found_handlers;
+  u64 not_found_handlers_capacity;
   u64 shared_capacity;
 } httiny_path_conf_t;
 

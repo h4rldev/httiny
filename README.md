@@ -21,6 +21,7 @@ HTTiny uses only the standard C library, and is written using gnu11.
 - [x] Handlers and Handler registration
 - [x] "Secure" File serving
 - [ ] "Secure" Directory serving
+- [ ] Custom 404 file serving
 
 - [ ] Make into library
 

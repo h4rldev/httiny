@@ -149,6 +149,7 @@ httiny_path_conf_t *serve_file(httiny_path_conf_t **path_conf,
   httiny_path_conf_t *path_conf_ptr = *path_conf;
   httiny_arena_t *arena = path_conf_ptr->thread_arena;
   httiny_path_list_t *path_list = path_conf_ptr->path_list;
+  httiny_handler_list_t *handler_list = path_conf_ptr->handler_list;
 
   httiny_handler_t *new_handler = arena_push(arena, sizeof(*new_handler));
   httiny_assert(new_handler != NULL && "Failed to allocate handler");
@@ -172,8 +173,8 @@ httiny_path_conf_t *serve_file(httiny_path_conf_t **path_conf,
 
   (*path_conf)->path_list->size = path_list->size + 1;
 
-  (*path_conf)->handler_list->handlers[path_list->size] = new_handler;
-  (*path_conf)->handler_list->size = path_list->size + 1;
+  (*path_conf)->handler_list->handlers[handler_list->size] = new_handler;
+  (*path_conf)->handler_list->size = handler_list->size + 1;
 
   return *path_conf;
 }
